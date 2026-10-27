@@ -1,6 +1,5 @@
 
 import { createClient } from "@supabase/supabase-js";
-import type { Product } from "@/data/products";
 
 export async function GET(request: Request) {
   const url = process.env.SUPABASE_URL;
@@ -22,32 +21,35 @@ export async function GET(request: Request) {
 
   const search = (
     new URL(request.url).searchParams.get("search") ?? ""
-  ).trim().toLowerCase();
+  ).trim();
 
-  // Get product records from PostgreSQL
-  const { data, error } = await supabase
-    .from("products")
-    .select("id, name, aisle, bay, shelf")
-    .order("id");
+  if (search.length > 100) {
+    return Response.json(
+      { error: "Search must be 100 characters or less" },
+      { status: 400 }
+    );
+  }
+
+  // PostgreSQL now handles the search
+  const { data, error } = await supabase.rpc(
+    "search_products",
+    {
+      search_term: search,
+      max_results: 20,
+    }
+  );
 
   if (error) {
-    console.error("Database error:", error.message);
+    console.error("Search error:", error.message);
 
     return Response.json(
-      { error: "Unable to load products" },
+      { error: "Unable to search products" },
       { status: 500 }
     );
   }
 
-  // Filter the database records by search query
-  const results = (data ?? []).filter(
-    (product: Product) =>
-      product.name.toLowerCase().includes(search) ||
-      product.id.includes(search)
-  );
-
   return Response.json({
-    count: results.length,
-    products: results,
+    count: data?.length ?? 0,
+    products: data ?? [],
   });
 }
