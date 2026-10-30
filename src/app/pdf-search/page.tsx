@@ -71,16 +71,19 @@ try {
     if (done) break;
 
     for (const item of value.items) {
-      if ("str" in item) {
-        textParts.push(item.str);
-      }
+      
+if ("str" in item) {
+  textParts.push(item.str);
+  textParts.push(item.hasEOL ? "\n" : " ");
+}
+
     }
   }
 } finally {
   reader.releaseLock();
 }
 
-const text = textParts.join(" ");
+const text = textParts.join("");
 
           extractedPages.push({
             pageNumber: i,
