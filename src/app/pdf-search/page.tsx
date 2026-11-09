@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
+import { parseProductRows } from "@/lib/parseProductRows";
 
 type PDFPage = {
   pageNumber: number;
@@ -15,6 +16,7 @@ export default function PDFSearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // STEP 1: Upload and process the PDF
   async function handleUpload(
     event: ChangeEvent<HTMLInputElement>
   ) {
@@ -48,42 +50,45 @@ export default function PDFSearchPage() {
         await file.arrayBuffer()
       );
 
-     const loadingTask = pdfjs.getDocument({
-  data: fileData,
-});
+      const loadingTask = pdfjs.getDocument({
+        data: fileData,
+      });
 
-const pdf = await loadingTask.promise;
-
+      const pdf = await loadingTask.promise;
       const extractedPages: PDFPage[] = [];
 
       try {
+        // STEP 2: Extract text from each page
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
-          
-const reader = page.streamTextContent().getReader();
 
-const textParts: string[] = [];
+          const reader = page
+            .streamTextContent()
+            .getReader();
 
-try {
-  while (true) {
-    const { done, value } = await reader.read();
+          const textParts: string[] = [];
 
-    if (done) break;
+          try {
+            while (true) {
+              const { done, value } =
+                await reader.read();
 
-    for (const item of value.items) {
-      
-if ("str" in item) {
-  textParts.push(item.str);
-  textParts.push(item.hasEOL ? "\n" : " ");
-}
+              if (done) break;
 
-    }
-  }
-} finally {
-  reader.releaseLock();
-}
+              for (const item of value.items) {
+                if ("str" in item) {
+                  textParts.push(item.str);
+                  textParts.push(
+                    item.hasEOL ? "\n" : " "
+                  );
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
 
-const text = textParts.join("");
+          const text = textParts.join("");
 
           extractedPages.push({
             pageNumber: i,
@@ -96,6 +101,8 @@ const text = textParts.join("");
 
       setPages(extractedPages);
     } catch (err) {
+      console.error(err);
+
       setError(
         err instanceof Error
           ? err.message
@@ -106,8 +113,10 @@ const text = textParts.join("");
     }
   }
 
+  // STEP 3: Process the user's search
   const query = search.trim().toLowerCase();
 
+  // Original PDF text search
   const results = query
     ? pages.flatMap((page) => {
         const index = page.text
@@ -122,12 +131,28 @@ const text = textParts.join("");
           index + query.length + 100
         );
 
-        return [{
-          pageNumber: page.pageNumber,
-          snippet: page.text.slice(start, end),
-        }];
+        return [
+          {
+            pageNumber: page.pageNumber,
+            snippet: page.text.slice(start, end),
+          },
+        ];
       })
     : [];
+
+  // STEP 4: Extract structured product records
+  const extractedProducts = pages.flatMap((page) =>
+    parseProductRows(page.text, page.pageNumber)
+  );
+
+  // STEP 5: Search extracted products
+  const matchingProducts = extractedProducts.filter(
+    (product) =>
+      product.itemNumber.includes(query) ||
+      product.description
+        .toLowerCase()
+        .includes(query)
+  );
 
   return (
     <main className="min-h-screen bg-gray-100 p-8 text-gray-900">
@@ -139,9 +164,10 @@ const text = textParts.join("");
 
         <p className="mb-6 text-gray-600">
           Upload a merchandising document and
-          search its contents.
+          automatically find product information.
         </p>
 
+        {/* PDF UPLOAD */}
         <div className="rounded-lg bg-white p-6 shadow">
           <h2 className="mb-3 text-lg font-semibold">
             Upload Document
@@ -177,23 +203,75 @@ const text = textParts.join("");
         {pages.length > 0 && (
           <div className="mt-6">
 
+            {/* SEARCH BAR */}
             <input
               type="text"
               placeholder="Search item number or product..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border bg-white p-4"
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
+              className="w-full rounded-lg border border-gray-300 bg-white p-4"
             />
 
+            {/* STRUCTURED PRODUCT RESULTS */}
             <h2 className="mb-4 mt-6 text-xl font-bold">
-              Matching Pages: {results.length}
+              Extracted Products ({extractedProducts.length})
+            </h2>
+
+            <div className="mb-6 space-y-3">
+              {(query
+                ? matchingProducts
+                : extractedProducts
+              ).map((product, index) => (
+                <div
+                  key={`${product.sourcePage}-${product.itemNumber}-${index}`}
+                  className="rounded-lg bg-white p-5 shadow-sm"
+                >
+                  <h3 className="text-lg font-semibold">
+                    {product.description}
+                  </h3>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    Item Number: {product.itemNumber}
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-4 text-sm">
+                    <span>
+                      <strong>Bay:</strong>{" "}
+                      {product.bay}
+                    </span>
+
+                    <span>
+                      <strong>Position:</strong>{" "}
+                      {product.position}
+                    </span>
+
+                    <span>
+                      <strong>PDF Page:</strong>{" "}
+                      {product.sourcePage}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {query && matchingProducts.length === 0 && (
+              <p className="mb-6 text-gray-500">
+                No matching structured products found.
+              </p>
+            )}
+
+            {/* ORIGINAL PDF TEXT RESULTS */}
+            <h2 className="mb-4 mt-8 text-xl font-bold">
+              Matching PDF Pages ({results.length})
             </h2>
 
             <div className="space-y-4">
               {results.map((result) => (
                 <div
                   key={result.pageNumber}
-                  className="rounded-lg bg-white p-5 shadow"
+                  className="rounded-lg bg-white p-5 shadow-sm"
                 >
                   <h3 className="font-bold">
                     Page {result.pageNumber}
@@ -207,17 +285,18 @@ const text = textParts.join("");
             </div>
 
             {query && results.length === 0 && (
-              <p className="text-gray-500">
-                No matches found in this PDF.
+              <p className="mt-4 text-gray-500">
+                No matching text found in this PDF.
               </p>
             )}
 
             {!query && (
-              <p className="text-gray-500">
+              <p className="mt-4 text-gray-500">
                 Enter a product name or item number
                 to search the document.
               </p>
             )}
+
           </div>
         )}
 
