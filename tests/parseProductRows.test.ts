@@ -64,4 +64,54 @@ Item Number | Description | Bay | Position
     expect(parseProductRows("", 1)).toEqual([]);
   });
 
+it("extracts tab-separated products", () => {
+  const text = "100234\tPaint Brush 50mm\t04\t12";
+
+  const result = parseProductRows(text, 1);
+
+  expect(result).toHaveLength(1);
+  expect(result[0].description).toBe("Paint Brush 50mm");
+  expect(result[0].bay).toBe("04");
+});
+
+it("extracts products separated by multiple spaces", () => {
+  const text = "100234   Paint Brush 50mm   04   12";
+
+  const result = parseProductRows(text, 1);
+
+  expect(result).toHaveLength(1);
+  expect(result[0].position).toBe("12");
+});
+
+it("extracts products separated by single spaces", () => {
+  const text = "100234 Paint Brush 50mm 04 12";
+
+  const result = parseProductRows(text, 1);
+
+  expect(result).toHaveLength(1);
+  expect(result[0].itemNumber).toBe("100234");
+});
+
+it("extracts mixed formats from one document", () => {
+  const text = [
+    "100234 | Paint Brush 50mm | 04 | 12",
+    "100235\tPaint Roller Set\t04\t13",
+    "100236 Cordless Drill 09 02",
+  ].join("\n");
+
+  const result = parseProductRows(text, 2);
+
+  expect(result).toHaveLength(3);
+  expect(result.every((p) => p.sourcePage === 2))
+    .toBe(true);
+});
+
+it("ignores incomplete product rows", () => {
+  const text = "100234 Paint Brush 50mm 04";
+
+  const result = parseProductRows(text, 1);
+
+  expect(result).toEqual([]);
+});
+
 });
