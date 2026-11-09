@@ -1,105 +1,106 @@
 # Merchandising Locator
 
-**A full-stack product-location search app inspired by real retail merchandising workflows.**
+**A document-search workspace for retail merchandising, built with Next.js, TypeScript and PDF.js.**
 
-[**Live demo**](https://merchandising-locator.vercel.app) · [**GitHub profile**](https://github.com/FFaraj2004)
+[Live demo](https://merchandising-locator.vercel.app) · [Source code](https://github.com/FFaraj2004/Merchandising-Locator-)
 
-> **Status: Work in progress.** The current demo uses **fictional product data**. This is a personal portfolio project, not an official CROSSMARK or Bunnings system. AI-powered search is an idea for a later iteration, **not a feature of the current release**.
+> **Portfolio project — actively developed.** Built to explore a real workflow problem: finding products and their locations across merchandising documents. All examples use fictional data. This is not affiliated with CROSSMARK, Bunnings or any other employer.
 
-## Why I built this
+## The problem
 
-While working in retail merchandising, I noticed how much time can be spent looking through planograms and item-number lists to find the correct product location. I started Merchandising Locator as a way to explore a faster, searchable workflow for finding an item by name or SKU and displaying its aisle, bay and shelf.
+Merchandisers often work from planograms, product lists and layout PDFs. Looking up a single item can mean opening a document, searching for its SKU, checking its bay and position, and repeating that process for the next item.
 
-## What works today
+I built Merchandising Locator to make this information faster to find, while retaining a link back to the source document so locations can be checked.
 
-- Search products by **name or item number** with case-insensitive matching.
-- View each matching product's **aisle, bay and shelf**.
-- Responsive React UI built with **reusable, typed components**.
-- **Next.js REST API** that passes search requests to **Supabase PostgreSQL**.
-- Database-side filtering through a PostgreSQL **`search_products` RPC function**, with up to **20 results per request**.
-- Basic request validation, error handling, loading states and cancellation of outdated frontend requests.
-- **8 Vitest API-handler tests**, using mocks for successful requests, empty results, invalid input and database/configuration failures.
-- Live production deployment on **Vercel**.
+## Current features
 
-## Tech stack
+### PDF workspace
 
-| Area | Technologies |
+- Upload **one PDF at a time** (up to 20 MB).
+- Extract selectable text in the browser using **PDF.js**.
+- Parse product records containing an **item number, description, bay, position and source page**.
+- Recognise simple pipe-separated, tab-separated and space-separated product rows.
+- Filter extracted products by item number or description.
+- Fall back to searching the original extracted PDF text when no structured product matches.
+- Select a result to navigate to its **source page**, with a side-by-side document preview and Previous/Next controls.
+
+The current repository homepage (`/`) presents the PDF workspace. A separate PDF route (`/pdf-search`) also exists in the repository.
+
+### Product search API and database
+
+- A Next.js `GET /api/products?search=...` endpoint backed by **Supabase PostgreSQL**.
+- Database-side, case-insensitive search through a `search_products` RPC function, returning up to 20 records.
+- Input validation and error handling.
+- A fictional demo product dataset, with Row Level Security configured for read-only access.
+
+The API and PDF extraction are currently **separate workflows**; extracted PDF products are not automatically written into Supabase.
+
+## Technology
+
+| Layer | Tools |
 | --- | --- |
-| Frontend | Next.js, React, TypeScript, Tailwind CSS |
-| Backend | Next.js Route Handlers, REST/JSON, Supabase JavaScript client |
-| Database | PostgreSQL (Supabase), SQL, Row Level Security, RPC |
-| Testing | Vitest, mocked Supabase calls |
-| Deployment | Vercel, Git, GitHub |
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
+| PDF processing | PDF.js (`pdfjs-dist`), browser Canvas |
+| Backend | Next.js Route Handlers, REST/JSON |
+| Database | Supabase PostgreSQL, SQL, Row Level Security, RPC |
+| Quality | Vitest, ESLint, TypeScript |
+| Deployment | Vercel, GitHub |
 
-## Architecture
+## How the PDF feature works
 
 ```text
-Browser / React UI
-       |
-       | GET /api/products?search=drill
-       v
-Next.js API route
-       |
-       | Supabase RPC: search_products(search_term, max_results)
-       v
-PostgreSQL products table
+PDF file (user's browser)
        |
        v
-JSON response -> ProductCard components
+PDF.js extracts page text
+       |
+       v
+parseProductRows(text, pageNumber)
+       |
+       v
+Searchable records: SKU / description / bay / position / page
+       |
+       v
+Select result --> Render source PDF page using Canvas
 ```
 
-The database applies case-insensitive matching and limits the result set. The frontend does not connect directly to PostgreSQL. Read access for the fictional demo data is controlled with Supabase Row Level Security.
+For the current PDF workspace, processing happens on the client side; PDFs are not uploaded to the application's Supabase database.
 
-## API example
+The database-backed product search uses a different path:
 
-```http
+```text
 GET /api/products?search=drill
+       |
+       v
+Next.js API route --> Supabase RPC --> PostgreSQL products table
+       |
+       v
+JSON response
 ```
-
-Example response (using the demo dataset):
-
-```json
-{
-  "count": 2,
-  "products": [
-    {"id": "1001", "name": "Cordless Drill", "aisle": "12", "bay": "3", "shelf": "2"},
-    {"id": "1006", "name": "Impact Drill", "aisle": "12", "bay": "3", "shelf": "1"}
-  ]
-}
-```
-
-The API trims whitespace, rejects search terms longer than 100 characters, and returns at most 20 products. The `count` property is the number of **returned** products, not the total number of matches in the database.
 
 ## Run locally
 
-**Requirements:** Node.js (version 22 recommended), npm and a Supabase project with the database described below.
+**Requirements:** Node.js 22 and npm.
 
 ```bash
 git clone https://github.com/FFaraj2004/Merchandising-Locator-.git
 cd Merchandising-Locator-
 npm ci
+npm run dev
 ```
 
-Create a `.env.local` file in the project root:
+Open [http://localhost:3000](http://localhost:3000).
+
+The PDF workspace can be used without Supabase credentials. To use the database-backed API, create `.env.local`:
 
 ```dotenv
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 ```
 
-Create a `public.products` table in Supabase with text columns `id` (primary key), `name`, `aisle`, `bay` and `shelf`, then add fictional product records. The API also expects a PostgreSQL function named `public.search_products(search_term TEXT, max_results INTEGER)`, which returns those five columns and searches name or ID case-insensitively. Configure suitable read-only RLS policies; the database schema and migrations are planned to be added to the repository in a later iteration.
+The backend expects a `public.products` table and a `public.search_products(search_term TEXT, max_results INTEGER)` function. Database setup scripts have not yet been committed, so a fresh installation of the database API needs manual Supabase configuration. Never commit service-role keys, passwords or `.env.local`.
 
-**Never commit database passwords or service-role/secret keys.** The project uses a publishable Supabase key subject to database access policies.
-
-Start the dev server:
-
-```bash
-npm run dev
-```
-
-Open http://localhost:3000.
-
-## Testing and checks
+## Tests and quality checks
 
 ```bash
 npm test
@@ -108,24 +109,38 @@ npx tsc --noEmit
 npm run build
 ```
 
-The 8 current tests mock Supabase and verify the **API handler's behaviour**. They do not yet test the live PostgreSQL function end to end.
+The test suite contains **19 tests**: 8 API-handler tests with mocked Supabase behaviour, and 11 parser tests covering validation and the supported text row formats. These are unit-level tests; they do not prove that every real-world planogram layout can be parsed.
 
-## Project roadmap
+## Current limitations
 
-- [x] Search interface with product location cards
-- [x] Typed, reusable React components
-- [x] Next.js backend API
-- [x] Supabase PostgreSQL integration and database-side search
-- [x] Automated API-handler tests
-- [x] Public deployment on Vercel
-- [ ] Version-controlled database schema and setup scripts
-- [ ] Improved mobile interface and user experience
-- [ ] Search pagination and larger-dataset performance evaluation
-- [ ] Integration tests against a dedicated test database
-- [ ] Optional natural-language / AI-assisted product lookup
+- **Single PDF:** uploading another file replaces the previous document.
+- PDFs must contain extractable text; image-only scans need OCR, which is not implemented.
+- Extraction is line-based and may miss complex PDF tables or columns whose text is output in an unexpected order.
+- Clicking a product navigates to the source **page**, but does not highlight its exact position on the page.
+- Uploaded PDF data is held in the current browser session, not saved for later retrieval.
+- Real customer/employer documents should not be uploaded without permission.
+
+## Roadmap
+
+- [x] Full-stack product search API backed by PostgreSQL
+- [x] Automated API and parser tests
+- [x] PDF text extraction and basic structured parsing
+- [x] Side-by-side product results and source PDF viewer
+- [ ] **Search across multiple uploaded PDFs in one workspace**, with filenames shown beside results
+- [ ] Remove individual PDFs and export consolidated results to CSV
+- [ ] Improve table extraction, source verification and false-positive handling
+- [ ] Add tests for multi-document state, navigation and large PDFs
+- [ ] Add a version-controlled Supabase database schema/migration
+- [ ] Add a GitHub Actions CI workflow and deployment verification
+- [ ] Add screenshots, a short demo and performance/accessibility polish
+- [ ] Consider OCR for scans and optional AI-assisted search after core reliability improves
+
+## Project scope and privacy
+
+The project is a learning and portfolio application, not a production inventory management system. Location results should be verified against the source PDF. The current features do not perform AI-assisted search. The live deployment may lag behind the latest local code until Vercel finishes deploying the corresponding Git commit.
 
 ## Author
 
-**Fouad Faraj** · [GitHub: FFaraj2004](https://github.com/FFaraj2004)
+**Fouad Faraj** · [GitHub](https://github.com/FFaraj2004)
 
-Built as an ongoing software engineering portfolio project using **synthetic data only**.
+Built from firsthand retail merchandising experience and developed as a software engineering portfolio project.
