@@ -1,10 +1,22 @@
 # Merchandising Locator
 
-**A document-search workspace for retail merchandising, built with Next.js, TypeScript and PDF.js.**
+**Search retail product locations and trace the result back to its source PDF — a Next.js, TypeScript and PDF.js portfolio project.**
+
+[![CI](https://github.com/FFaraj2004/Merchandising-Locator-/actions/workflows/ci.yml/badge.svg)](https://github.com/FFaraj2004/Merchandising-Locator-/actions/workflows/ci.yml)
 
 [Live demo](https://merchandising-locator.vercel.app) · [Source code](https://github.com/FFaraj2004/Merchandising-Locator-)
 
 > **Portfolio project — actively developed.** Built to explore a real workflow problem: finding products and their locations across merchandising documents. All examples use fictional data. This is not affiliated with CROSSMARK, Bunnings or any other employer.
+
+## Quick demo
+
+1. Open the [live application](https://merchandising-locator.vercel.app).
+2. Upload a **fictional text-based planogram PDF** (up to 20 MB).
+3. Search for an item number or product description in the left-hand panel.
+4. Select a result to inspect its source PDF page on the right.
+5. Use Previous/Next to review surrounding pages.
+
+**Current GitHub release:** one PDF at a time. Multi-PDF aggregation and CSV export have been developed locally, but are not included in the default branch yet; this documentation will be updated after the new version is pushed and verified.
 
 ## The problem
 
@@ -111,6 +123,8 @@ npm run build
 
 The test suite contains **19 tests**: 8 API-handler tests with mocked Supabase behaviour, and 11 parser tests covering validation and the supported text row formats. These are unit-level tests; they do not prove that every real-world planogram layout can be parsed.
 
+GitHub Actions runs these checks on pushes and pull requests. [View CI results](https://github.com/FFaraj2004/Merchandising-Locator-/actions).
+
 ## Current limitations
 
 - **Single PDF:** uploading another file replaces the previous document.
@@ -131,7 +145,8 @@ The test suite contains **19 tests**: 8 API-handler tests with mocked Supabase b
 - [ ] Improve table extraction, source verification and false-positive handling
 - [ ] Add tests for multi-document state, navigation and large PDFs
 - [ ] Add a version-controlled Supabase database schema/migration
-- [ ] Add a GitHub Actions CI workflow and deployment verification
+- [x] Add a GitHub Actions CI workflow for tests, lint, TypeScript and production build
+- [ ] Verify the multi-PDF release and deployed live demo
 - [ ] Add screenshots, a short demo and performance/accessibility polish
 - [ ] Consider OCR for scans and optional AI-assisted search after core reliability improves
 
